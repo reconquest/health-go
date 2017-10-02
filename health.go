@@ -11,7 +11,8 @@ import (
 
 type Health struct {
 	*sync.Mutex
-	errors map[string]string
+	keys   []string
+	errors []string
 }
 
 type response struct {
@@ -21,8 +22,7 @@ type response struct {
 
 func NewHealth() *Health {
 	return &Health{
-		Mutex:  &sync.Mutex{},
-		errors: map[string]string{},
+		Mutex: &sync.Mutex{},
 	}
 }
 
@@ -30,14 +30,51 @@ func (health *Health) Alert(err error, keys ...string) {
 	health.Lock()
 	defer health.Unlock()
 
-	health.errors[strings.Join(keys, "@")] = health.formatError(err)
+	key := strings.Join(keys, "@")
+
+	for index, stored := range health.keys {
+		if stored == key {
+			health.errors[index] = health.formatError(err)
+
+			return
+		}
+	}
+
+	health.keys = append(health.keys, key)
+	health.errors = append(health.errors, health.formatError(err))
 }
 
 func (health *Health) Resolve(keys ...string) {
 	health.Lock()
 	defer health.Unlock()
 
-	delete(health.errors, strings.Join(keys, "@"))
+	key := strings.Join(keys, "@")
+
+	for index, stored := range health.keys {
+		if stored == key {
+			health.keys = append(
+				health.keys[:index],
+				health.keys[index+1:]...,
+			)
+			health.errors = append(
+				health.errors[:index],
+				health.errors[index+1:]...,
+			)
+
+			return
+		}
+	}
+}
+
+func (health *Health) GetStatus() string {
+	health.Lock()
+	defer health.Unlock()
+
+	if len(health.errors) > 0 {
+		return "error"
+	}
+
+	return "ok"
 }
 
 func (health *Health) GetErrors() []string {
@@ -86,11 +123,22 @@ func (health *Health) formatError(reason interface{}) string {
 	return message
 }
 
+func (health *Health) HasErrors() bool {
+	health.Lock()
+	defer health.Unlock()
+
+	return len(health.errors) > 0
+}
+
 func (health *Health) MarshalJSON() ([]byte, error) {
-	errors := health.GetErrors()
-	if len(errors) == 0 {
+	if !health.HasErrors() {
 		return json.Marshal(response{Status: "ok"})
 	}
 
-	return json.Marshal(response{Status: "error", Errors: errors})
+	return json.Marshal(
+		response{
+			Status: health.GetStatus(),
+			Errors: health.GetErrors(),
+		},
+	)
 }

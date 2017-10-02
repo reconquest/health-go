@@ -29,7 +29,8 @@ func TestHealth_Alert_UsesKeys(t *testing.T) {
 	health := NewHealth()
 	health.Alert(errors.New("a"), "key1", "key2")
 
-	test.EqualValues(map[string]string{"key1@key2": "a"}, health.errors)
+	test.EqualValues([]string{"a"}, health.GetErrors())
+	test.EqualValues([]string{"key1@key2"}, health.keys)
 }
 
 func TestHealth_Resolve_RemovesError(t *testing.T) {
@@ -42,7 +43,6 @@ func TestHealth_Resolve_RemovesError(t *testing.T) {
 	health.Resolve("key3", "key4")
 
 	test.EqualValues([]string{"a"}, health.GetErrors())
-	test.EqualValues(map[string]string{"key1@key2": "a"}, health.errors)
 }
 
 func TestHealth_MarshalJSON_ReturnsOkForNoErrors(t *testing.T) {
@@ -65,4 +65,21 @@ func TestHealth_MarshalJSON_ReturnsOkForNoErrors(t *testing.T) {
 		`),
 		string(buffer.Bytes()),
 	)
+}
+
+func TestHealth_HasErrors_ReturnsTrueIfErrorExists(t *testing.T) {
+	test := assert.New(t)
+
+	health := NewHealth()
+	health.Alert(nil, "a")
+
+	test.True(health.HasErrors())
+}
+
+func TestHealth_HasErrors_ReturnsFalseIfNoErrorExists(t *testing.T) {
+	test := assert.New(t)
+
+	health := NewHealth()
+
+	test.False(health.HasErrors())
 }
