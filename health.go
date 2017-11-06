@@ -109,7 +109,11 @@ func (health *Health) formatError(reason interface{}) string {
 		message += strings.Join(reasons, "; ")
 
 	default:
-		message += err.Message + ": " + health.formatError(err.Reason)
+		if err.Message != "" {
+			message += err.Message + ": " + health.formatError(err.Reason)
+		} else {
+			message += health.formatError(err.Reason)
+		}
 	}
 
 	var pairs []string
