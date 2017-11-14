@@ -15,8 +15,8 @@ type Health struct {
 	errors []string
 }
 
-type response struct {
-	Status string   `json:"status"`
+type Response struct {
+	Status int      `json:"status"`
 	Errors []string `json:"errors,omitempty"`
 }
 
@@ -66,15 +66,15 @@ func (health *Health) Resolve(keys ...string) {
 	}
 }
 
-func (health *Health) GetStatus() string {
+func (health *Health) GetStatus() int {
 	health.Lock()
 	defer health.Unlock()
 
 	if len(health.errors) > 0 {
-		return "error"
+		return 1
 	}
 
-	return "ok"
+	return 0
 }
 
 func (health *Health) GetErrors() []string {
@@ -135,14 +135,18 @@ func (health *Health) HasErrors() bool {
 }
 
 func (health *Health) MarshalJSON() ([]byte, error) {
+	return json.Marshal(health.GetResponse())
+}
+
+func (health *Health) GetResponse() Response {
 	if !health.HasErrors() {
-		return json.Marshal(response{Status: "ok"})
+		return Response{
+			Status: health.GetStatus(),
+		}
 	}
 
-	return json.Marshal(
-		response{
-			Status: health.GetStatus(),
-			Errors: health.GetErrors(),
-		},
-	)
+	return Response{
+		Status: health.GetStatus(),
+		Errors: health.GetErrors(),
+	}
 }
