@@ -39,7 +39,7 @@ func Example_Health_DefaultResponse() {
 
 	// Output:
 	// {
-	//   "status": "ok"
+	//   "status": 0
 	// }
 }
 
@@ -68,7 +68,7 @@ func Example_Health_AlertErrors() {
 
 	// Output:
 	// {
-	//   "status": "error",
+	//   "status": 1,
 	//   "errors": [
 	//     "no meaning of life",
 	//     "time is a flat circle"
@@ -99,7 +99,7 @@ func Example_Health_ResovleErrors() {
 
 	// Output:
 	// {
-	//   "status": "ok"
+	//   "status": 0
 	// }
 }
 

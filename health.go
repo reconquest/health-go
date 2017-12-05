@@ -9,6 +9,15 @@ import (
 	"github.com/reconquest/karma-go"
 )
 
+const (
+	HierarchyDelimiterUnicode = " → "
+	HierarchyDelimiterASCII   = ": "
+)
+
+var (
+	DefaultHierarchyDelimiter = HierarchyDelimiterUnicode
+)
+
 type Health struct {
 	*sync.Mutex
 	keys   []string
@@ -110,7 +119,8 @@ func (health *Health) formatError(reason interface{}) string {
 
 	default:
 		if err.Message != "" {
-			message += err.Message + ": " + health.formatError(err.Reason)
+			message += err.Message +
+				DefaultHierarchyDelimiter + health.formatError(err.Reason)
 		} else {
 			message += health.formatError(err.Reason)
 		}

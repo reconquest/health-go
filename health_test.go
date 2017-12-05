@@ -45,7 +45,7 @@ func TestHealth_Resolve_RemovesError(t *testing.T) {
 	test.EqualValues([]string{"a"}, health.GetErrors())
 }
 
-func TestHealth_MarshalJSON_ReturnsOkForNoErrors(t *testing.T) {
+func TestHealth_MarshalJSON_ReturnsZeroForNoErrors(t *testing.T) {
 	test := assert.New(t)
 
 	health := NewHealth()
@@ -60,7 +60,7 @@ func TestHealth_MarshalJSON_ReturnsOkForNoErrors(t *testing.T) {
 
 	test.Equal(
 		untabber.Replace(`{
-			"status": "ok"
+			"status": 0
 		}
 		`),
 		string(buffer.Bytes()),
