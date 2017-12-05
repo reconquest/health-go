@@ -27,8 +27,10 @@ Usage:
   health-get --version
 
 Options:
-  -h --help  Show this screen.
-  --version  Show version.
+  -h --help                Show this screen.
+  -d --delimiter <string>  Hierarchy delimiter.
+                            [default: →]
+  --version                Show version.
 `
 )
 
@@ -38,7 +40,10 @@ func main() {
 		panic(err)
 	}
 
-	url := args["<url>"].(string)
+	var (
+		url       = args["<url>"].(string)
+		delimiter = args["--delimiter"].(string)
+	)
 
 	resource, err := http.Get(url)
 	if err != nil {
@@ -60,7 +65,7 @@ func main() {
 		var root karma.Reason
 		root = karma.Push(
 			fmt.Sprintf("%d", len(response.Errors)),
-			getReasons(response.Errors)...,
+			getReasons(response.Errors, delimiter)...,
 		)
 
 		tree = tree.Describe("errors", root)
@@ -69,7 +74,7 @@ func main() {
 	fmt.Println(tree.Reason(url))
 }
 
-func getReasons(rows []string) []karma.Reason {
+func getReasons(rows []string, delimiter string) []karma.Reason {
 	matcher := regexp.MustCompile(`(?P<keyvalue>\[(?P<key>[^=]+)=(?P<value>[^\]]+)\])`)
 
 	var reasons []karma.Reason
@@ -89,9 +94,23 @@ func getReasons(rows []string) []karma.Reason {
 			message = strings.Replace(message, keyvalue, "", -1)
 		}
 
-		message = strings.TrimSpace(message)
+		var reason karma.Reason
 
-		reasons = append(reasons, context.Reason(message))
+		parts := strings.Split(message, delimiter)
+		for i := len(parts) - 1; i >= 0; i-- {
+			trimed := strings.TrimSpace(parts[i])
+			if i == len(parts)-1 {
+				reason = context.Reason(trimed)
+				continue
+			}
+
+			reason = karma.Karma{
+				Message: trimed,
+				Reason:  reason,
+			}
+		}
+
+		reasons = append(reasons, reason)
 	}
 
 	return reasons
