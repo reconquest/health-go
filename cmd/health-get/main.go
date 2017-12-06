@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -29,7 +30,8 @@ Usage:
 Options:
   -h --help                Show this screen.
   -d --delimiter <string>  Hierarchy delimiter.
-                            [default: →]
+                            [default: → ]
+  -v --verbose             Be verbose.
   --version                Show version.
 `
 )
@@ -41,11 +43,42 @@ func main() {
 	}
 
 	var (
-		url       = args["<url>"].(string)
+		target    = args["<url>"].(string)
 		delimiter = args["--delimiter"].(string)
+		verbose   = args["--verbose"].(bool)
 	)
 
-	resource, err := http.Get(url)
+	uri, err := url.Parse(target)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fixed := false
+	if uri.Scheme == "" {
+		fixed = true
+		uri.Scheme = "http"
+
+		// workaround for https://play.golang.org/p/EjNV-iDLZv
+		newtarget := uri.String()
+
+		uri, err = url.Parse(newtarget)
+		if err != nil {
+			log.Fatalf("%s: %s", newtarget, err)
+		}
+	}
+
+	if uri.Path == "" {
+		fixed = true
+		uri.Path = "/health"
+	}
+
+	if verbose && fixed {
+		log.Printf("URL fixed to %s", uri.String())
+	}
+
+	target = uri.String()
+
+	resource, err := http.Get(target)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -71,7 +104,7 @@ func main() {
 		tree = tree.Describe("errors", root)
 	}
 
-	fmt.Println(tree.Reason(url))
+	fmt.Println(tree.Reason(target))
 }
 
 func getReasons(rows []string, delimiter string) []karma.Reason {
