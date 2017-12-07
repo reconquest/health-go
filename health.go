@@ -18,15 +18,25 @@ var (
 	DefaultHierarchyDelimiter = HierarchyDelimiterUnicode
 )
 
+type Error string
+
+func (err Error) Error() string {
+	return string(err)
+}
+
+func (err Error) MarshalJSON() ([]byte, error) {
+	return json.Marshal(string(err))
+}
+
 type Health struct {
 	*sync.Mutex
 	keys   []string
-	errors []string
+	errors []error
 }
 
 type Response struct {
-	Status int      `json:"status"`
-	Errors []string `json:"errors,omitempty"`
+	Status int     `json:"status"`
+	Errors []error `json:"errors,omitempty"`
 }
 
 func NewHealth() *Health {
@@ -43,14 +53,14 @@ func (health *Health) Alert(err error, keys ...string) {
 
 	for index, stored := range health.keys {
 		if stored == key {
-			health.errors[index] = health.formatError(err)
+			health.errors[index] = err
 
 			return
 		}
 	}
 
 	health.keys = append(health.keys, key)
-	health.errors = append(health.errors, health.formatError(err))
+	health.errors = append(health.errors, err)
 }
 
 func (health *Health) Resolve(keys ...string) {
@@ -86,13 +96,13 @@ func (health *Health) GetStatus() int {
 	return 0
 }
 
-func (health *Health) GetErrors() []string {
+func (health *Health) GetErrors() []error {
 	health.Lock()
 	defer health.Unlock()
 
-	errors := []string{}
+	errors := []error{}
 	for _, err := range health.errors {
-		errors = append(errors, err)
+		errors = append(errors, Error(health.formatError(err)))
 	}
 
 	return errors
@@ -158,5 +168,18 @@ func (health *Health) GetResponse() Response {
 	return Response{
 		Status: health.GetStatus(),
 		Errors: health.GetErrors(),
+	}
+}
+
+func (health *Health) GetExpandedResponse() Response {
+	if !health.HasErrors() {
+		return Response{
+			Status: health.GetStatus(),
+		}
+	}
+
+	return Response{
+		Status: health.GetStatus(),
+		Errors: health.errors,
 	}
 }
