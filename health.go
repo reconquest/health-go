@@ -178,6 +178,14 @@ func (health *Health) GetExpandedResponse() Response {
 		}
 	}
 
+	for i, err := range health.errors {
+		if _, ok := err.(karma.Karma); ok {
+			continue
+		}
+
+		health.errors[i] = Error(err.Error())
+	}
+
 	return Response{
 		Status: health.GetStatus(),
 		Errors: health.errors,
