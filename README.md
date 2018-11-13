@@ -8,4 +8,4 @@ See [example_test.go](example_test.go)
 
 # License
 
-MIT
+This project is licensed under the terms of the MIT license.
