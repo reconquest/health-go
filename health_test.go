@@ -83,3 +83,23 @@ func TestHealth_HasErrors_ReturnsFalseIfNoErrorExists(t *testing.T) {
 
 	test.False(health.HasErrors())
 }
+
+func BenchmarkHealth_Resolve(b *testing.B) {
+	health := NewHealth()
+
+	health.Alert(errors.New("a"), "key1", "key2")
+	health.Alert(errors.New("b"), "key1", "key2")
+	health.Alert(errors.New("c"), "key1", "key2")
+
+	for i := 0; i < b.N; i++ {
+		health.Resolve("x")
+	}
+}
+
+func BenchmarkHealth_Alert(b *testing.B) {
+	health := NewHealth()
+
+	for i := 0; i < b.N; i++ {
+		health.Alert(errors.New("a"), "key1", "key2")
+	}
+}
