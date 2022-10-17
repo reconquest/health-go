@@ -29,9 +29,8 @@ func (err Error) MarshalJSON() ([]byte, error) {
 }
 
 type Health struct {
-	*sync.Mutex
-	keys   []string
-	errors []error
+	mutex   sync.RWMutex
+	reports map[string][]error
 }
 
 type Response struct {
@@ -41,68 +40,52 @@ type Response struct {
 
 func NewHealth() *Health {
 	return &Health{
-		Mutex: &sync.Mutex{},
+		reports: map[string][]error{},
+		mutex:   sync.RWMutex{},
 	}
 }
 
 func (health *Health) Alert(err error, keys ...string) {
-	health.Lock()
-	defer health.Unlock()
-
 	key := strings.Join(keys, "@")
 
-	for index, stored := range health.keys {
-		if stored == key {
-			health.errors[index] = err
-
-			return
-		}
+	health.mutex.Lock()
+	if _, ok := health.reports[key]; !ok {
+		health.reports[key] = []error{err}
+	} else {
+		health.reports[key] = append(health.reports[key], err)
 	}
-
-	health.keys = append(health.keys, key)
-	health.errors = append(health.errors, err)
+	health.mutex.Unlock()
 }
 
 func (health *Health) Resolve(keys ...string) {
-	health.Lock()
-	defer health.Unlock()
-
 	key := strings.Join(keys, "@")
 
-	for index, stored := range health.keys {
-		if stored == key {
-			health.keys = append(
-				health.keys[:index],
-				health.keys[index+1:]...,
-			)
-			health.errors = append(
-				health.errors[:index],
-				health.errors[index+1:]...,
-			)
-
-			return
-		}
-	}
+	health.mutex.Lock()
+	delete(health.reports, key)
+	health.mutex.Unlock()
 }
 
 func (health *Health) GetStatus() int {
-	health.Lock()
-	defer health.Unlock()
+	health.mutex.RLock()
+	size := len(health.reports)
+	health.mutex.RUnlock()
 
-	if len(health.errors) > 0 {
-		return 1
+	if size == 0 {
+		return 0
 	}
 
-	return 0
+	return 1
 }
 
 func (health *Health) GetErrors() []error {
-	health.Lock()
-	defer health.Unlock()
+	health.mutex.RLock()
+	defer health.mutex.RUnlock()
 
-	errors := []error{}
-	for _, err := range health.errors {
-		errors = append(errors, Error(health.formatError(err)))
+	errors := make([]error, 0, len(health.reports))
+	for _, errs := range health.reports {
+		for _, err := range errs {
+			errors = append(errors, Error(health.formatError(err)))
+		}
 	}
 
 	return errors
@@ -148,10 +131,10 @@ func (health *Health) formatError(reason interface{}) string {
 }
 
 func (health *Health) HasErrors() bool {
-	health.Lock()
-	defer health.Unlock()
+	health.mutex.Lock()
+	defer health.mutex.Unlock()
 
-	return len(health.errors) > 0
+	return len(health.reports) > 0
 }
 
 func (health *Health) MarshalJSON() ([]byte, error) {
@@ -172,22 +155,28 @@ func (health *Health) GetResponse() Response {
 }
 
 func (health *Health) GetExpandedResponse() Response {
+	health.mutex.RLock()
+	defer health.mutex.RUnlock()
+
 	if !health.HasErrors() {
 		return Response{
 			Status: health.GetStatus(),
 		}
 	}
 
-	for i, err := range health.errors {
-		if _, ok := err.(karma.Karma); ok {
-			continue
-		}
+	errors := make([]error, 0, len(health.reports))
+	for _, errs := range health.reports {
+		for _, err := range errs {
+			if _, ok := err.(karma.Karma); ok {
+				continue
+			}
 
-		health.errors[i] = Error(err.Error())
+			errors = append(errors, Error(err.Error()))
+		}
 	}
 
 	return Response{
 		Status: health.GetStatus(),
-		Errors: health.errors,
+		Errors: errors,
 	}
 }

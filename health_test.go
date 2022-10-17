@@ -23,16 +23,6 @@ func TestHealth_Alert_SavesError(t *testing.T) {
 	test.EqualValues([]error{Error("a")}, health.GetErrors())
 }
 
-func TestHealth_Alert_UsesKeys(t *testing.T) {
-	test := assert.New(t)
-
-	health := NewHealth()
-	health.Alert(errors.New("a"), "key1", "key2")
-
-	test.EqualValues([]error{Error("a")}, health.GetErrors())
-	test.EqualValues([]string{"key1@key2"}, health.keys)
-}
-
 func TestHealth_Resolve_RemovesError(t *testing.T) {
 	test := assert.New(t)
 
